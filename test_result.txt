@@ -1,0 +1,28 @@
+ python test_extraction.py 
+
+PDF Extraction System - Test Suite
+======================================================================
+
+Testing with 6 documents from dataset.json
+======================================================================
+[1/6] ✓ carteira_oab         | oab_1.pdf                 | Time: 10.924s | Cost: $0.000285 | Fields: 6/8 | Cache: MISS
+[2/6] ✓ carteira_oab         | oab_2.pdf                 | Time: 15.348s | Cost: $0.000297 | Fields: 6/7 | Cache: MISS
+[3/6] ✓ carteira_oab         | oab_3.pdf                 | Time:  8.291s | Cost: $0.000174 | Fields: 5/7 | Cache: MISS
+[4/6] ✓ tela_sistema         | tela_sistema_1.pdf        | Time:  8.495s | Cost: $0.000218 | Fields: 3/7 | Cache: MISS
+[5/6] ✓ tela_sistema         | tela_sistema_2.pdf        | Time:  6.250s | Cost: $0.000154 | Fields: 5/5 | Cache: MISS
+[6/6] ✓ tela_sistema         | tela_sistema_3.pdf        | Time:  8.191s | Cost: $0.000212 | Fields: 2/3 | Cache: MISS
+Results saved to: results_6.json
+======================================================================
+
+SUMMARY:
+  Total documents: 6
+  Successful: 6
+  Failed: 0
+  Total processing time: 57.500s
+  Average time per document: 9.583s
+  Total cost: $0.001339
+  Average cost per document: $0.000223
+  Cache hits: 0/6 (0.0%)
+  ✓ Time requirement (<10s per document) met!
+
+✓ Test completed
