@@ -65,7 +65,6 @@ Este sistema extrai informações estruturadas de PDFs de página única. **Nota
 
 **Solução**:
 - **Design de prompt mínimo**: Incluir apenas descrições de campos necessárias
-- **Truncamento de texto**: Limitar texto do PDF a ~4000 caracteres (suficiente para documentos de página única)
 - **Saída estruturada**: Usar `response_format={"type": "json_object"}` para parsing JSON eficiente
 - **Temperatura baixa**: Definida em 0.1 para consistência e saídas determinísticas
 
@@ -264,12 +263,6 @@ Uma vez que o servidor estiver rodando, visite:
    - Atende requisito de sessão
    - Implementação simples
    - Pode ser estendido para Redis em produção
-
-4. **Por que GPT-5-mini?**
-   - Opção custo-efetiva ($0.075/$0.30 por 1M tokens entrada/saída)
-   - Precisão suficiente para extração estruturada
-   - Tempos de resposta rápidos
-   - Conforme especificado nos requisitos do projeto
 
 ## Limitações e Melhorias Futuras
 
