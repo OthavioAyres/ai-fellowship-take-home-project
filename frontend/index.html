@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Data Extraction System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>PDF Data Extraction System</h1>
+            <p>Extract structured data from PDFs using AI</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-button active" onclick="switchTab('single')">Single Extraction</button>
+            <button class="tab-button" onclick="switchTab('batch')">Batch Processing</button>
+        </nav>
+
+        <!-- Single Extraction Tab -->
+        <div id="single-tab" class="tab-content active">
+            <div class="form-section">
+                <h2>Extract from Single PDF</h2>
+                <form id="single-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="label">Label (Document Type):</label>
+                        <input type="text" id="label" name="label" required placeholder="e.g., carteira_oab, tela_sistema">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="schema">Extraction Schema (JSON):</label>
+                        <textarea id="schema" name="extraction_schema" rows="8" required placeholder='{"nome": "Nome do profissional", "inscricao": "Número de inscrição"}'></textarea>
+                        <small>Enter field names and descriptions as JSON object</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pdf">PDF File:</label>
+                        <input type="file" id="pdf" name="pdf" accept=".pdf" required>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Extract Data</button>
+                </form>
+            </div>
+
+            <div id="single-result" class="result-section hidden">
+                <h3>Extraction Results</h3>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="metric-label">Processing Time:</span>
+                        <span class="metric-value" id="time-value">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Cost:</span>
+                        <span class="metric-value" id="cost-value">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Cache Hit:</span>
+                        <span class="metric-value" id="cache-value">-</span>
+                    </div>
+                </div>
+                <div class="result-data">
+                    <pre id="result-json"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Processing Tab -->
+        <div id="batch-tab" class="tab-content">
+            <div class="form-section">
+                <h2>Batch Processing</h2>
+                <p>Upload a JSON file with batch extraction requests</p>
+                <form id="batch-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="batch-json">Batch JSON File:</label>
+                        <input type="file" id="batch-json" name="batch_file" accept=".json" required>
+                        <small>JSON file should contain array of objects with: label, extraction_schema, pdf_path</small>
+                    </div>
+                    <button type="submit" class="submit-btn">Process Batch</button>
+                </form>
+            </div>
+
+            <div id="batch-result" class="result-section hidden">
+                <h3>Batch Results</h3>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="metric-label">Total Time:</span>
+                        <span class="metric-value" id="batch-time-value">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Total Cost:</span>
+                        <span class="metric-value" id="batch-cost-value">-</span>
+                    </div>
+                </div>
+                <div class="result-data">
+                    <pre id="batch-result-json"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Processing...</p>
+        </div>
+
+        <div id="error" class="error hidden"></div>
+    </div>
+
+    <script>
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            if (tab === 'single') {
+                document.getElementById('single-tab').classList.add('active');
+                document.querySelectorAll('.tab-button')[0].classList.add('active');
+            } else {
+                document.getElementById('batch-tab').classList.add('active');
+                document.querySelectorAll('.tab-button')[1].classList.add('active');
+            }
+        }
+
+        // Single extraction form
+        document.getElementById('single-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+
+            // Validate JSON schema
+            try {
+                JSON.parse(formData.get('extraction_schema'));
+            } catch (err) {
+                showError('Invalid JSON in extraction schema');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+            hideResult('single-result');
+
+            try {
+                const response = await fetch('/extract', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Extraction failed');
+                }
+
+                displayResult(data, 'single');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        // Batch processing form
+        document.getElementById('batch-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('batch-json');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showError('Please select a JSON file');
+                return;
+            }
+
+            showLoading(true);
+            hideError();
+            hideResult('batch-result');
+
+            try {
+                const text = await file.text();
+                const batchData = JSON.parse(text);
+
+                // Validate batch data structure
+                if (!Array.isArray(batchData)) {
+                    throw new Error('Batch JSON must be an array of items');
+                }
+
+                // Prepare batch request - dataset.json format matches BatchItem format
+                const batchRequest = {
+                    requests: batchData.map(item => ({
+                        label: item.label || '',
+                        extraction_schema: item.extraction_schema || {},
+                        pdf_path: item.pdf_path || ''
+                    }))
+                };
+
+                // Call batch extraction API
+                const response = await fetch('/extract-batch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(batchRequest)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Batch extraction failed');
+                }
+
+                displayBatchResult(data);
+            } catch (error) {
+                showError('Failed to process batch: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        function displayResult(data, type) {
+            if (type === 'single') {
+                document.getElementById('time-value').textContent = data.processing_time.toFixed(3) + 's';
+                document.getElementById('cost-value').textContent = '$' + data.cost.toFixed(6);
+                document.getElementById('cache-value').textContent = data.cache_hit ? 'Yes' : 'No';
+                document.getElementById('result-json').textContent = JSON.stringify(data.extracted_data, null, 2);
+                document.getElementById('single-result').classList.remove('hidden');
+            }
+        }
+
+        function displayBatchResult(data) {
+            document.getElementById('batch-time-value').textContent = (data.total_processing_time || 0).toFixed(3) + 's';
+            document.getElementById('batch-cost-value').textContent = '$' + (data.total_cost || 0).toFixed(6);
+            
+            // Create summary of results
+            const summary = {
+                total_items: data.results ? data.results.length : 0,
+                total_cost: data.total_cost || 0,
+                total_processing_time: data.total_processing_time || 0,
+                cache_hits: data.results ? data.results.filter(r => r.cache_hit).length : 0,
+                results: data.results || []
+            };
+            
+            document.getElementById('batch-result-json').textContent = JSON.stringify(summary, null, 2);
+            document.getElementById('batch-result').classList.remove('hidden');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        function hideResult(resultId) {
+            document.getElementById(resultId).classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
+
